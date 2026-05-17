@@ -28,7 +28,7 @@ jobs:
     - name: Run Semgrep SAST Scan
       run: |
         semgrep --config=p/python --json --output=semgrep-results.json . || true
-        semgrep --config=p/python . 
+        semgrep --config=p/python .
 
     - name: Run Gitleaks Secret Scan
       uses: gitleaks/gitleaks-action@v2
@@ -36,7 +36,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Upload Semgrep Results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: semgrep-results
