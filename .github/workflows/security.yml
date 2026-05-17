@@ -1,0 +1,43 @@
+name: DevSecOps Security Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install flask
+        pip install semgrep
+
+    - name: Run Semgrep SAST Scan
+      run: |
+        semgrep --config=p/python --json --output=semgrep-results.json . || true
+        semgrep --config=p/python . 
+
+    - name: Run Gitleaks Secret Scan
+      uses: gitleaks/gitleaks-action@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload Semgrep Results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: semgrep-results
+        path: semgrep-results.json
