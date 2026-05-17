@@ -1,13 +1,14 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template_string
 import sqlite3
 import os
 
 app = Flask(__name__)
-DATABASE = 'users.db'
 
-# VULNERABILITY 1: Hardcoded secret key (Gitleaks isko pakde ga)
-SECRET_KEY = "admin123password"
-API_KEY = "sk-hardcoded-api-key-12345"
+# FIX 1: Secret key environment variable se
+SECRET_KEY = os.environ.get('SECRET_KEY', 'fallback-only-for-dev')
+API_KEY = os.environ.get('API_KEY', '')
+
+DATABASE = 'users.db'
 
 def get_db():
     conn = sqlite3.connect(DATABASE)
@@ -32,12 +33,17 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         conn = get_db()
-        query = f"SELECT * FROM users WHERE username='{username}' AND password='{password}'"
-        result = conn.execute(query).fetchone()
+
+        # FIX 2: Parameterized query — SQL injection fix
+        query = "SELECT * FROM users WHERE username=? AND password=?"
+        result = conn.execute(query, (username, password)).fetchone()
         conn.close()
+
         if result:
-            return f"<h2>Welcome {result[1]}!</h2>"
+            # FIX 3: render_template_string se XSS fix
+            return render_template_string("<h2>Welcome {{ name }}!</h2>", name=result[1])
         return "<h2>Login failed!</h2>"
+
     return '''
         <form method="POST">
             Username: <input name="username"><br><br>
@@ -49,16 +55,13 @@ def login():
 @app.route('/search')
 def search():
     query = request.args.get('q', '')
-    return f"<h2>Search results for: {query}</h2>"
+    # FIX 4: render_template_string se XSS fix
+    return render_template_string("<h2>Search results for: {{ q }}</h2>", q=query)
 
-@app.route('/debug')
-def debug():
-    return jsonify({
-        "secret_key": SECRET_KEY,
-        "api_key": API_KEY,
-        "database": DATABASE
-    })
+# FIX 5: Debug endpoint remove kar diya
+# /debug route bilkul hata diya
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # FIX 6: debug=False, host localhost only
+    app.run(debug=False, host='127.0.0.1', port=5000)
